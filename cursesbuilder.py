@@ -69,7 +69,7 @@ class Menu(object):
         self._subtitle = subtitle
         self._items = items
 
-    def navigate(self, n):
+    def _navigate(self, n):
         # Arrow key handler for selection verifies limits
         self._position += n
         if self._position < 0:
@@ -113,9 +113,9 @@ class Menu(object):
 
             # Handle arrow-key navigation
             elif key == curses.KEY_UP:
-                self.navigate(-1)
+                self._navigate(-1)
             elif key == curses.KEY_DOWN:
-                self.navigate(1)
+                self._navigate(1)
             # Validate numeric input, handle
             elif (key - 48) in range(1, 1+len(self._items)):
                 self._position = key - 49
@@ -135,9 +135,9 @@ class Menu(object):
 #   the parent screen upon which we will draw.
 ########################################################################
 class InputBox(object):
-    def __init__(self, title, default, length, stdscreen):
+    def __init__(self, title, default, length, stdscr):
         # We ensure our box will fit on this screen space
-        self._maxY, self._maxX = stdscreen.getmaxyx()
+        self._maxY, self._maxX = stdscr.getmaxyx()
         # Aborting if it's really short
         if self._maxY < 3:
             return None
@@ -153,7 +153,7 @@ class InputBox(object):
         self._endX = int((self._maxX // 2) - (self._maxX % 2) + (self._length // 2))
 
         # Define our subwindow and panel
-        self._window = stdscreen.subwin(3, self._length + 2, self._startY, self._startX)
+        self._window = stdscr.subwin(3, self._length + 2, self._startY, self._startX)
         self._window.keypad(1)
         self._panel = panel.new_panel(self._window)
         self._panel.hide()
@@ -239,9 +239,9 @@ class InputBox(object):
 #    YES, False if NO
 ########################################################################
 class MessageBox(object):
-    def __init__(self, title, message, stdscreen):
+    def __init__(self, title, message, stdscr):
         # We ensure our box will fit on this screen space
-        self._maxY, self._maxX = stdscreen.getmaxyx()
+        self._maxY, self._maxX = stdscr.getmaxyx()
         # Abort if there's not enough vertical space
         if self._maxY < 4:
             return None
@@ -256,7 +256,7 @@ class MessageBox(object):
         self._startX = int((self._maxX // 2) - (self._maxX % 2) - (self._length // 2) - 1)
         self._endX = int((self._maxX // 2) - (self._maxX % 2) + (self._length // 2))
         # Build window an panel
-        self._window = stdscreen.subwin(4, self._length + 2, self._startY, self._startX)
+        self._window = stdscr.subwin(4, self._length + 2, self._startY, self._startX)
         self._window.keypad(1)
         self._panel = panel.new_panel(self._window)
         self._panel.hide()
