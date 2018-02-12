@@ -132,7 +132,10 @@ class Menu(object):
 #
 # Title displayed along the top, default is the pre-filled string,
 #   length is the desired width of the text input box, and stdscreen is
-#   the parent screen upon which we will draw.
+#   the parent screen upon which we will draw. Supports the following
+#   methods:
+# InputBox.getVal()
+#   Displays the InputBox with value in an editable field. Returns value
 ########################################################################
 class InputBox(object):
     def __init__(self, title, default, length, stdscr):
@@ -145,10 +148,10 @@ class InputBox(object):
         # Roughly center our input box
         self._startY = int((self._maxY // 2) - (self._maxY % 2) - 1)
         self._endY = int((self._maxY // 2) - (self._maxY % 2) + 1)
-        self._length = length
+        self._length = length + 1
         # Chopping the width to fit the canvas
-        if (self._length + 2) >= self._maxX:
-            self._length = self._maxX - 2
+        if (self._length + 3) >= self._maxX:
+            self._length = self._maxX - 3
         self._startX = int((self._maxX // 2) - (self._maxX % 2) - (self._length // 2) - 1)
         self._endX = int((self._maxX // 2) - (self._maxX % 2) + (self._length // 2))
 
@@ -167,6 +170,51 @@ class InputBox(object):
         self._valueR = ''
         self._curPosition = len(self.value)
 
+    def _moveCurs(self, pos=0, trim=0, app=None):
+        # Move the cursor by pos, optionally removing trim characters
+        #   from _valueL (if neg) or _valueR (if pos) or appending app
+        #   to _valueL (inserting it at the current cursor position)
+        if app and len(self.value) + 1 < self._length:
+            # Append and shift
+            pos = 1
+            self._valueL += app[0]
+        elif trim == -1:
+            # Remove from end of _valueL
+            if len(self._valueL) > 0:
+                pos = -1
+                self._valueL = self._valueL[0:-1]
+            else:
+                pos = 0
+        elif trim == 1:
+            # Remove from beginning of _valueR
+            if len(self._valueR) > 0:
+                pos = 0
+                self._valueR = self._valueR[1:]
+            else:
+                pos = 0
+        elif trim == 0:
+            # We're just shifting
+            if pos < 0:
+                # Slide from left to right
+                self._valueR = self._valueL[pos:] + self._valueR
+                self._valueL = self._valueL[:pos]
+            if pos > 0:
+                # Slide from right to left
+                self._valueL += self._valueR[:pos]
+                self._valueR = self._valueR[pos:]
+        else:
+            # wat
+            pos = 0
+        # Concatenate and trim value to length
+        self.value = ''.join((self._valueL, self._valueR))[:self._length]
+        # Set cursor position, bounds check
+        self._curPosition += pos
+        if self._curPosition < 0:
+            self._curPosition = 0
+        elif self._curPosition > len(self.value):
+            self._curPosition = len(self.value)
+
+
     def getVal(self):
         # Display our input box, show the cursor and save the old state
         self._panel.top()
@@ -175,9 +223,6 @@ class InputBox(object):
         old_curs = curses.curs_set(1)
 
         while True:
-            # Merge value halves, chop excess length
-            self.value = self._valueL + self._valueR
-            self.value = self.value[:self._length]
             self._window.refresh()
             curses.doupdate()
             # Draw a box around input dialogue
@@ -187,37 +232,28 @@ class InputBox(object):
             self._window.addstr(1, 1, self.value + (' ' * (self._length - len(self.value) - 1)), curses.A_REVERSE)
             # Put cursor where it belongs
             self._window.move(1, self._curPosition + 1)
+
             # Wait for input
             key = self._window.getch()
+            # Handle input appropriately
             if key in [curses.KEY_ENTER, ord('\n')]:
-                # Save the value
+                # Accept value, break loop
                 break
             elif key < 256:
-                # Append valueL if able
-                if len(self._valueL) < self._length - 1:
-                    self._valueL += chr(key)
-                    self._curPosition += 1
+                # Key was in UTF-8 range
+                self._moveCurs(app=chr(key))
             elif key == curses.KEY_BACKSPACE:
-                # Remove last valueL character if able
-                if len(self._valueL) > 0:
-                    self._valueL = self._valueL[0:-1]
-                    self._curPosition -= 1
+                self._moveCurs(trim=-1)
             elif key == curses.KEY_DC:
-                # Remove first valueR character if able
-                if len(self._valueR) > 0:
-                    self._valueR = self._valueR[1:]
+                self._moveCurs(trim=1)
             elif key == curses.KEY_RIGHT:
-                # Shift cursor, and string slices, to the right if able
-                if self._curPosition < len(self.value):
-                    self._valueL += self._valueR[0]
-                    self._valueR = self._valueR[1:]
-                    self._curPosition += 1
+                self._moveCurs(pos=1)
             elif key == curses.KEY_LEFT:
-                # Shift cursor, and string slices, to the left if able
-                if self._curPosition > 0:
-                    self._valueR = self._valueL[-1]+self._valueR
-                    self._valueL = self._valueL[:-1]
-                    self._curPosition -= 1
+                self._moveCurs(pos=-1)
+            elif key == curses.KEY_HOME:
+                self._moveCurs(pos=-self._length)
+            elif key == curses.KEY_END:
+                self._moveCurs(pos=self._length)
 
         # After breaking loop, reset cursor style and clean up panel
         curses.curs_set(old_curs)
@@ -230,7 +266,7 @@ class InputBox(object):
 ########################################################################
 # MessageBox class to display simple messages with different actions.
 #
-# Title and Message are strings to display, box is dynamically sized and
+# title and message are strings to display, box is dynamically sized and
 #   centered. Supports the following methods:
 # MessageBox.showMessage()
 #   Shows the message and a simple OK button, returns None.

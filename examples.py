@@ -68,15 +68,15 @@ def examples(stdscr):
     subtitle = 'Main Menu Options'
 
     # Define our InputBox/Message chained object
-    chainInput = chainInputMessage('Enter input:', 'default message', 40, stdscr)
+    chainInput = chainInputMessage('Enter input:', 'default message', 20, stdscr)
 
     # Define Menu object items list
     #   ('Entry', action, booleanForSoftBreak)
     menuItems = [
-            ('Input Example', chainInput.display, False),
-            ('Soft menu break', False, True),
-            ('Hard exit', exit, False)
-            ]
+        ('Input Example', chainInput.display, False),
+        ('Soft menu break', False, True),
+        ('Hard exit', exit, False)
+    ]
 
     # Define the Menu
     menu = cur.Menu(title, subtitle, menuItems, stdscr)
