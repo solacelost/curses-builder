@@ -31,6 +31,7 @@
 
 import curses
 import cursesbuilder as cur
+from time import sleep
 
 ########################################################################
 # Currently, classes are the best way to handle chaining objects within
@@ -43,31 +44,52 @@ class chainInputMessage(object):
         #   input was confirmed
         self.value = False
         # We need to save our stdscr because we have to pass it to
-        #   another object in display()
+        #   another object in display(), rather than instantiate our own
         self._stdscr = stdscr
         # We can instantiate our InputBox now because the content isn't
-        #   dynamic after object instantiation
+        #   dynamic after chain object instantiation
         self._inputBox = cur.InputBox(title, default, width, stdscr)
-
     def display(self):
         # Save the InputBox value into a temporary variable prior to
         #   confirmation
-        tempVal = self._inputBox.getVal()
+        tempVal = self._inputBox.show()
         # Get confirmation from a Yes/No dialog
-        if cur.MessageBox('Confirm your selection?', tempVal, self._stdscr).yesNo():
+        if cur.YesNoBox('Confirm your selection?', tempVal, self._stdscr).show():
             # Set value, no need to return
             self.value = tempVal
 
+########################################################################
+# This small subclass of our MessageBox class (also a subclass...)
+#   enables us to easily move a box around. There are exposed methods
+#   in the class to do the movement, but no neat way to animate it live.
+class messageBoxMover(cur.MessageBox):
+    # I don't bother rebuilding __init__ here, I stick with a basic
+    #   MessageBox. I do need to replace show(), however...
+    def show(self):
+        self._show()
+        while True:
+            self._update()
+            # A little iterator to move our box 10 to the right
+            for i in range(1, 10):
+                # Using adjust() keeps our existing bounds checking in
+                #   place.
+                self.adjust(x=1)
+                # We need to refresh after every adjust()
+                self._update()
+                sleep(0.1)
+            # Tear the box down when user presses Enter
+            key = self._window.getch()
+            if key in [curses.KEY_ENTER, ord('\n')]:
+                break
+        self._hide()
+
 
 def examples(stdscr):
-    # Blank the cursor for menu handling
-    curses.curs_set(0)
-
     # Set our title/subtitle
     title = 'Curses Builder Examples, v' + cur.Version
     subtitle = 'Main Menu Options'
 
-    # Define our InputBox/Message chained object
+    # Define our InputBox/MessageBox chained object
     chainInput = chainInputMessage('Enter input:', 'default message', 20, stdscr)
 
     # Define Menu object items list
@@ -81,13 +103,14 @@ def examples(stdscr):
     # Define the Menu
     menu = cur.Menu(title, subtitle, menuItems, stdscr)
     # Initiate interaction with menu
-    menu.display()
+    menu.show()
 
     # Menu should be clear, we can act on value of chained input here
     if chainInput.value:
-        cur.MessageBox('You selected:', chainInput.value, stdscr).showMessage()
+        cur.MessageBox('You selected:', '"' + chainInput.value + '"', stdscr).show()
     else:
-        cur.MessageBox('Warning',"You didn't select a value!",stdscr).showMessage()
+        # Demo our custom subclass here
+        messageBoxMover('Warning',"You didn't select a value!\nThere is no need to be upset.",stdscr).show()
 
 if __name__ == '__main__':
     # You should definitely use curses.wrapper() to generate your standard

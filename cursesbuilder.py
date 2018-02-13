@@ -26,25 +26,11 @@
 #  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 
-
-# TODO:
-# Subclass message types
-# Implement less-like paginator
-# Widget-ize processes with scrolling output
-# Progress bars! PROGRESS BARS!
-# Provide means to encapsulate whole canvasses, drawing widgets on top
-#   and eliminating the need to manually wrap curses
-# Improve panel handling
-# A better menu system that doesn't require class instantiation to chain
-#   widgets together
-# Handling of multi-line messages
-
 Version = '0.1'
 
 import curses
 from curses import panel
 from time import sleep
-from collections import deque
 
 ########################################################################
 # Menu class allows for creation of arrow-key-selectable menu choices
@@ -57,7 +43,7 @@ from collections import deque
 class Menu(object):
     def __init__(self, title, subtitle, items, stdscr):
         # Prepare the curses subwindow and panel
-        self._window = stdscr.subwin(0,0)
+        self._window = curses.newwin(0,0)
         self._window.keypad(1)
         self._panel = panel.new_panel(self._window)
         self._panel.hide()
@@ -77,8 +63,9 @@ class Menu(object):
         elif self._position >= len(self._items):
             self._position = len(self._items)-1
 
-    def display(self):
+    def show(self):
         # Bring the curses panel to the top and show it, prepare to draw
+        curses.curs_set(0)
         self._panel.top()
         self._panel.show()
         self._window.clear()
@@ -127,45 +114,234 @@ class Menu(object):
         curses.doupdate()
 
 ########################################################################
-# InputBox class to build a pop-up text-fill box with granular control
-#   over actions, returning the entered string.
-#
-# Title displayed along the top, default is the pre-filled string,
-#   length is the desired width of the text input box, and stdscreen is
-#   the parent screen upon which we will draw. Supports the following
-#   methods:
-# InputBox.getVal()
-#   Displays the InputBox with value in an editable field. Returns value
+# _BoxButton class to build selectable buttons for _ButtonBoxes
 ########################################################################
-class InputBox(object):
-    def __init__(self, title, default, length, stdscr):
+class _BoxButton(object):
+    # Some easily modifyable class attributes here, you can instantiate
+    #   your own instances with different selection criteria (such as
+    #   colors or whatnot)
+    selected = {'mode': curses.A_REVERSE, 'name': 'selected'}
+    deselected = {'mode': curses.A_NORMAL, 'name': 'deselected'}
+    # If you modify selected/deselected but leave modes alone, toggle
+    #   on yes/no should work the same
+    modes = ( selected, deselected )
+    def __init__(self, text='OK', mode=deselected):
+        self.text = ' ' + text + ' '
+        self.mode = mode
+        self.length = len(self.text)
+    # Implemented mostly for laziness
+    def __str__(self):
+        return self.text.strip()
+    # Individual mode selection methods, usable for Boxes with lots of
+    #   buttons if you like
+    def select(self):
+        self.mode = _BoxButton().selected
+    def deselect(self):
+        self.mode = _BoxButton().deselected
+    # Short and sweet generator toggle
+    def toggle(self):
+        self.mode = [ x for x in _BoxButton().modes if x != self.mode ][0]
+
+########################################################################
+# _ButtonBox class to display simple messages with different actions.
+#
+# This is a skeleton superclass, all subclasses have the following:
+#   center method: Does what it says on the tin, recenters the Box
+#   adjust method: Moves the Box by y,x from current position, if able
+#   move method: Moves the box to y,x if able
+#   title property: Title displayed on the Box
+#   message property: Message displayed inside the box, as a list of
+#       newline-split strings
+#
+# Various 'private' properties and methods exist for manipulating in
+#   your own subclasses.
+########################################################################
+class _ButtonBox(object):
+    def __init__(self, title, message, buttons, stdscr):
+        # Set object's title, message, and buttons
+        self.title = title
+        self.message = message.split('\n')
+        self._buttons = buttons
         # We ensure our box will fit on this screen space
-        self._maxY, self._maxX = stdscr.getmaxyx()
-        # Aborting if it's really short
-        if self._maxY < 3:
+        self._parent = stdscr
+        self._maxY, self._maxX = self._parent.getmaxyx()
+        self._height = 3 + len(self.message)
+        # Abort if there's not enough vertical space
+        if self._maxY < self._height:
             return None
-
-        # Roughly center our input box
-        self._startY = int((self._maxY // 2) - (self._maxY % 2) - 1)
-        self._endY = int((self._maxY // 2) - (self._maxY % 2) + 1)
-        self._length = length + 1
-        # Chopping the width to fit the canvas
-        if (self._length + 3) >= self._maxX:
-            self._length = self._maxX - 3
-        self._startX = int((self._maxX // 2) - (self._maxX % 2) - (self._length // 2) - 1)
-        self._endX = int((self._maxX // 2) - (self._maxX % 2) + (self._length // 2))
-
-        # Define our subwindow and panel
-        self._window = stdscr.subwin(3, self._length + 2, self._startY, self._startX)
+        # Set width of box, truncating on window length
+        self._buttonWidth = sum([x.length for x in self._buttons])
+        messageWidth = max(len(x) for x in self.message)
+        self._width = min(self._maxX, max(len(title)+1, messageWidth, self._buttonWidth) + 2)
+        # Build window and panel, then hide
+        self.center()
+        self._window = curses.newwin(self._height, self._width, self._startY, self._startX)
         self._window.keypad(1)
         self._panel = panel.new_panel(self._window)
         self._panel.hide()
         panel.update_panels()
 
-        # Fill the title and default value, chop the value to allow for
-        #   cursor moves through string and put the cursor at the end.
-        self.title = title
+    def _show(self):
+        # Display our panel and clear the window
+        self._panel.top()
+        self._panel.show()
+        self._window.clear()
+
+    def _hide(self):
+        # Clean up the window/panel
+        self._window.clear()
+        self._panel.hide()
+        panel.update_panels()
+
+    def _update(self):
+        # Update the curses window
+        self.adjust()
+        panel.update_panels()
+        self._window.refresh()
+        curses.doupdate()
+        # Draw a box around the window
+        self._window.box()
+        # Add our title, message, and buttons
+        self._window.addstr(0, 1, self.title, curses.A_BOLD)
+        for i, m in enumerate(self.message):
+            self._window.addstr(1+i, 1, m)
+        offset = -1
+        for button in self._buttons:
+            y = self._height - 2
+            x = self._width - self._buttonWidth + offset
+            self._window.addstr(y, x, button.text, button.mode['mode'])
+            offset += button.length
+
+    def center(self):
+        # Center our panel
+        self._maxY, self._maxX = self._parent.getmaxyx()
+        self._startY = int((self._maxY // 2) - (self._maxY % 2) - (self._height // 2) - 1)
+        self._startX = int((self._maxX // 2) - (self._maxX % 2) - (self._width // 2) - 1)
+
+    def adjust(self, y=0, x=0):
+        # Move the panel by amounts y, x from current position with
+        #   some bounds checking to keep in the parent window
+        self._maxY, self._maxX = self._parent.getmaxyx()
+        if self._startY + self._height + y < self._maxY:
+            self._startY += y
+        else:
+            self._startY = self._maxY - self._height
+        if self._startX + self._width + x < self._maxX:
+            self._startX += x
+        else:
+            self._startX = self._maxX - self._width
+        self._startY = max(0, self._startY)
+        self._startX = max(0, self._startX)
+        self._panel.move(self._startY, self._startX)
+
+    def move(self, y=0, x=0):
+        # A bit of a hack, but adjust the window's position starting
+        #   from the top left. Bounds check once, cut twice?
+        self._maxY = 0
+        self._maxX = 0
+        self.adjust(y=y, x=x)
+
+########################################################################
+# MessageBox subclass to display a simple OK button on a _ButtonBox
+#
+# show() method displays the box, waits for Enter
+########################################################################
+class MessageBox(_ButtonBox):
+    def __init__(self, title, message, stdscr):
+        # _BoxButton set to default to ' OK ', so this is easy
+        buttons=[
+            _BoxButton(mode=_BoxButton().selected)
+        ]
+        # Call the _ButtonBox __init__()
+        super().__init__(title, message, buttons, stdscr)
+
+    def show(self):
+        # Call _show(), loop _update() while waiting for Enter
+        self._show()
+        while True:
+            self._update()
+            # Wait for input
+            key = self._window.getch()
+            if key in [curses.KEY_ENTER, ord('\n')]:
+                # Enter exits the box
+                break
+        # Clean up our MessageBox
+        self._hide()
+
+########################################################################
+# YesNoBox subclass to display YES and NO buttons, allowing arrow keys
+#   to toggle the selections and Y or N keys to hard select them.
+#
+# show() method again displays the box, but now returns True or False
+#   depending on selection of YES or NO buttons.
+########################################################################
+class YesNoBox(_ButtonBox):
+    def __init__(self, title, message, stdscr):
+        # Define our buttons using our built-in selectors from the
+        #   superclass.
+        buttons=[
+            _BoxButton(text='YES', mode=_BoxButton().deselected),
+            _BoxButton(text='NO', mode=_BoxButton().selected)
+        ]
+        # Call the _ButtonBox __init__()
+        super().__init__(title, message, buttons, stdscr)
+
+    def _move(self):
+        # Since our choices are binary, we can just toggle them all
+        #   on any movement.
+        for button in self._buttons:
+            button.toggle()
+
+    def show(self):
+        # Call _show(), initialize our return code, and loop _update()
+        #   while waiting for a selection
+        self._show()
+        returnCode = False
+        while True:
+            self._update()
+            # Wait for input
+            key = self._window.getch()
+            if key in [curses.KEY_ENTER, ord('\n')]:
+                # Binary choices make this easy
+                for button in self._buttons:
+                    if button.mode == _BoxButton().selected:
+                        if str(button) == 'YES':
+                            returnCode = True
+                break
+            elif key in [curses.KEY_LEFT, curses.KEY_RIGHT, curses.KEY_DOWN, curses.KEY_UP]:
+                self._move()
+            # key handling to allow hard-selection
+            elif key in [ord('y'),ord('Y')]:
+                returnCode = True
+                break
+            elif key in [ord('n'),ord('N')]:
+                break
+        # Clean up our YesNoBox and return the selected choice
+        self._hide()
+        return returnCode
+
+########################################################################
+# InputBox subclass to display a fillable field with an OK button
+#
+# show() displays the InputBox with the value passed as default and
+#   allows editing
+# value property: Contains the value for the field, retrievable after
+#   show() but persistent after __init__
+########################################################################
+class InputBox(_ButtonBox):
+    def __init__(self, title, default, length, stdscr):
+        # Define a simple OK button
+        buttons=[
+            _BoxButton(mode=_BoxButton().selected)
+        ]
+        # Fake out the _ButtonBox to give us three lines, 1 space wider
+        #   than the passed length
+        super().__init__(title, ' ' * (length+1) + '\n \n ', buttons, stdscr)
+
+        # Initialize value, _length, and our split _value variables.
+        #   Define _curPosition at the end of value
         self.value = default
+        self._length = length
         self._valueL = default
         self._valueR = ''
         self._curPosition = len(self.value)
@@ -174,7 +350,7 @@ class InputBox(object):
         # Move the cursor by pos, optionally removing trim characters
         #   from _valueL (if neg) or _valueR (if pos) or appending app
         #   to _valueL (inserting it at the current cursor position)
-        if app and len(self.value) + 1 < self._length:
+        if app and len(self.value) < self._length:
             # Append and shift
             pos = 1
             self._valueL += app[0]
@@ -206,33 +382,25 @@ class InputBox(object):
             # wat
             pos = 0
         # Concatenate and trim value to length
-        self.value = ''.join((self._valueL, self._valueR))[:self._length]
-        # Set cursor position, bounds check
+        self.value = ''.join((self._valueL, self._valueR))[:self._length+1]
+        # Set cursor position, bounds check it
         self._curPosition += pos
         if self._curPosition < 0:
             self._curPosition = 0
         elif self._curPosition > len(self.value):
             self._curPosition = len(self.value)
 
-
-    def getVal(self):
-        # Display our input box, show the cursor and save the old state
-        self._panel.top()
-        self._panel.show()
-        self._window.clear()
+    def show(self):
+        # Call _show(), make the cursor visible, loop _update() and
+        #   editable field drawing while waiting for Enter
+        self._show()
         old_curs = curses.curs_set(1)
-
         while True:
-            self._window.refresh()
-            curses.doupdate()
-            # Draw a box around input dialogue
-            self._window.box()
-            # Draw title and value
-            self._window.addstr(0, 1, self.title, curses.A_BOLD)
-            self._window.addstr(1, 1, self.value + (' ' * (self._length - len(self.value) - 1)), curses.A_REVERSE)
-            # Put cursor where it belongs
-            self._window.move(1, self._curPosition + 1)
-
+            self._update()
+            # This will highlight our field in A_REVERSE through the end
+            self._window.addstr(2, 1, self.value + (' ' * (self._length - len(self.value))), curses.A_REVERSE)
+            # Put the cursor where it belongs
+            self._window.move(2, self._curPosition + 1)
             # Wait for input
             key = self._window.getch()
             # Handle input appropriately
@@ -240,7 +408,7 @@ class InputBox(object):
                 # Accept value, break loop
                 break
             elif key < 256:
-                # Key was in UTF-8 range
+                # Key was in UTF-8 range, append it
                 self._moveCurs(app=chr(key))
             elif key == curses.KEY_BACKSPACE:
                 self._moveCurs(trim=-1)
@@ -257,126 +425,6 @@ class InputBox(object):
 
         # After breaking loop, reset cursor style and clean up panel
         curses.curs_set(old_curs)
-        self._window.clear()
-        self._panel.hide()
-        panel.update_panels()
-        # Return updated string value
+        self._hide()
+        # Return updated string value (useful? maybe ditch this)
         return self.value
-
-########################################################################
-# MessageBox class to display simple messages with different actions.
-#
-# title and message are strings to display, box is dynamically sized and
-#   centered. Supports the following methods:
-# MessageBox.showMessage()
-#   Shows the message and a simple OK button, returns None.
-# MessageBox.yesNo()
-#   Shows the message with option to select YES or NO, returns True if
-#    YES, False if NO
-########################################################################
-class MessageBox(object):
-    def __init__(self, title, message, stdscr):
-        # We ensure our box will fit on this screen space
-        self._maxY, self._maxX = stdscr.getmaxyx()
-        # Abort if there's not enough vertical space
-        if self._maxY < 4:
-            return None
-        # Otherwise center
-        self._startY = int((self._maxY // 2) - (self._maxY % 2) - 1)
-        self._endY = int((self._maxY // 2) - (self._maxY % 2) + 2)
-        # Set length and center
-        self._length = max(len(title)+1, len(message), 9)
-        # Truncate length based on display
-        if (self._length + 2) >= self._maxX:
-            self._length = self._maxX - 2
-        self._startX = int((self._maxX // 2) - (self._maxX % 2) - (self._length // 2) - 1)
-        self._endX = int((self._maxX // 2) - (self._maxX % 2) + (self._length // 2))
-        # Build window an panel
-        self._window = stdscr.subwin(4, self._length + 2, self._startY, self._startX)
-        self._window.keypad(1)
-        self._panel = panel.new_panel(self._window)
-        self._panel.hide()
-        panel.update_panels()
-        # Set object's title and message
-        self.title = title
-        self.message = message
-
-    def showMessage(self):
-        # display our panel and clear the window
-        self._panel.top()
-        self._panel.show()
-        self._window.clear()
-
-        while True:
-            # Update the curses window
-            self._window.refresh()
-            curses.doupdate()
-            # Draw a box around the window
-            self._window.box()
-            # Add our title and message, OK button
-            self._window.addstr(0, 1, self.title, curses.A_BOLD)
-            self._window.addstr(1, 1, self.message)
-            self._window.addstr(2, self._length - 4, ' OK ', curses.A_REVERSE)
-            # Wait for input
-            key = self._window.getch()
-            if key in [curses.KEY_ENTER, ord('\n')]:
-                # Enter exits pane
-                break
-            else:
-                # Flash the OK button if they press anything other than
-                #   enter.
-                self._window.addstr(2,self._length - 4, ' OK ', curses.A_NORMAL)
-                self._window.refresh()
-                curses.doupdate()
-                sleep(0.1)
-        # Clean up the window/panel
-        self._window.clear()
-        self._panel.hide()
-        panel.update_panels()
-
-    def yesNo(self):
-        # display our panel and clear the window
-        self._panel.top()
-        self._panel.show()
-        self._window.clear()
-
-        selected = curses.A_REVERSE
-        deselected = curses.A_NORMAL
-        selection = deque([selected,deselected])
-
-        while True:
-            # Update the curses window
-            self._window.refresh()
-            curses.doupdate()
-            # Draw a box around the window
-            self._window.box()
-
-            # Add our title, message, and YES/NO buttons
-            self._window.addstr(0, 1, self.title, curses.A_BOLD)
-            self._window.addstr(1, 1, self.message)
-            self._window.addstr(2, self._length - 4, ' NO ', selection[0])
-            self._window.addstr(2, self._length - 9, ' YES ', selection[1])
-
-            # Wait for input
-            key = self._window.getch()
-            if key in [curses.KEY_ENTER, ord('\n')]:
-                if selection.index(selected):
-                    returnCode = True
-                else:
-                    returnCode = False
-                break
-            elif key in [curses.KEY_LEFT, curses.KEY_RIGHT, curses.KEY_DOWN, curses.KEY_UP]:
-                selection.reverse()
-            elif key in [ord('y'),ord('Y')]:
-                returnCode = True
-                break
-            elif key in [ord('n'),ord('N')]:
-                returnCode = False
-                break
-
-        # Clean up the window/panel
-        self._window.clear()
-        self._panel.hide()
-        panel.update_panels()
-
-        return returnCode
