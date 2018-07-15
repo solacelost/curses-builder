@@ -20,7 +20,7 @@ example.py demonstrates usage of every primary class, as well as how to create c
 ## Classes
 ### Menu
 ---
-- Constructor: Menu(title, subtitle, items, stdscr)
+- Constructor: Menu(stdscr, title, subtitle, items)
   - title: String for title of menu, bold
   - subtitle: String for subtitle of menu, underlined
   - item: list, or other iterable, with iterable entries as follows:
@@ -36,7 +36,7 @@ Arrow keys or index numbers can be used to navigate the menu. Enter selects, per
 
 ### InputBox
 ---
-- Constructor: InputBox(title, default, length, stdscr)
+- Constructor: InputBox(stdscr, title, default, length)
   - title: String for the title on the box
   - default: String for the default value to fill the input box
   - length: Integer representing width of space to allow input
@@ -51,7 +51,7 @@ Arrow keys or index numbers can be used to navigate the menu. Enter selects, per
 
 ### MessageBox
 ---
-- Constructor: MessageBox(title, message, stdscr)
+- Constructor: MessageBox(stdscr, title, message)
   - title: String for the title on the box
   - message: String for the message to display
   - stdscr: Parent curses window on which to draw subwindow/panel
@@ -65,7 +65,7 @@ Arrow keys or index numbers can be used to navigate the menu. Enter selects, per
 
 ### YesNoBox
 ---
-- Constructor: YesNoBox(title, message, stdscr)
+- Constructor: YesNoBox(stdscr, title, message)
   - title: String for the title on the  box
   - message: String for the message to display
   - stdscr: Parent curses window on which to draw subwindow/panel
