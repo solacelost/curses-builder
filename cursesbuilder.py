@@ -26,22 +26,35 @@
 #  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 
-Version = '0.1'
+__version__ = '0.2-dev'
+__author__ = 'James Harmison <jharmison@gmail.com>'
 
 import curses
 from curses import panel
-from time import sleep
 
-########################################################################
-# Menu class allows for creation of arrow-key-selectable menu choices
-#   that perform various actions. Used currently only for main menu,
-#   but could be used for submenus, etc.
-#
-# `items` expected to be a list of 3-tuples.
-#   ('Menu entry', action, BreakMenu<True/False>)
-########################################################################
 class Menu(object):
-    def __init__(self, title, subtitle, items, stdscr):
+    '''
+    Menu class allows for creation of arrow-key-selectable menu choices
+      that perform various actions. Used currently only for main menu,
+      but could be used for submenus, etc.
+
+    `items` expected to be a list of 3-tuples, or 2-tuples (assuming False)
+      ('Menu entry', action, BreakMenu<True/False>)
+      ('Menu entry', action)    # Implying BreakMenu = False)
+
+
+    > item1 = InputBox(stdscr, 'Receive Input', 'default value', length=30)
+    > item2 = MessageBox(stdscr, 'Display Message', 'The message!')
+    >
+    > items = []
+    > items.append( ('Selection 1: Input', item1.show) )
+    > items.append( ('Selection 2: Message', item2.show, False) )
+    > items.append( ('Exit Menu', False, True) )
+    >
+    > Menu(stdscr, 'Title', 'Optional Subtitle', items).show()
+    > print('You selected "{}" in Selection 1.'.format(item1.value))
+    '''
+    def __init__(self, stdscr, title='Menu', subtitle='', items=[ ( 'Exit Menu', False, True ) ]):
         # Prepare the curses subwindow and panel
         self._window = curses.newwin(0,0)
         self._window.keypad(1)
@@ -53,6 +66,9 @@ class Menu(object):
         self._position = 0
         self._title = title
         self._subtitle = subtitle
+        # Handily append a soft menu break if you forgot...
+        if not True in [ x[2] for x in items if len(x) == 3 ]:
+            items.append( ('Exit Menu', False, True) )
         self._items = items
 
     def _navigate(self, n):
@@ -64,6 +80,10 @@ class Menu(object):
             self._position = len(self._items)-1
 
     def show(self):
+        '''
+        Menu.show() - Displays the menu. Meant to be called at the moment
+            you want to bring the menu to the top of the window.
+        '''
         # Bring the curses panel to the top and show it, prepare to draw
         curses.curs_set(0)
         self._panel.top()
@@ -92,7 +112,7 @@ class Menu(object):
             if key in [curses.KEY_ENTER, ord('\n')]:
                 # Break if the third element of this item's 3-tuple
                 #   evaluates to True
-                if self._items[self._position][2]:
+                if len(self._items[self._position]) > 2 and self._items[self._position][2]:
                     break
                 # Otherwise, perform the action
                 else:
@@ -113,10 +133,11 @@ class Menu(object):
         panel.update_panels()
         curses.doupdate()
 
-########################################################################
-# _BoxButton class to build selectable buttons for _ButtonBoxes
-########################################################################
 class _BoxButton(object):
+    '''
+    Class to build selectable buttons for _ButtonBoxes
+    Meant to be overloaded to define new button types.
+    '''
     # Some easily modifyable class attributes here, you can instantiate
     #   your own instances with different selection criteria (such as
     #   colors or whatnot)
@@ -142,22 +163,23 @@ class _BoxButton(object):
     def toggle(self):
         self.mode = [ x for x in _BoxButton().modes if x != self.mode ][0]
 
-########################################################################
-# _ButtonBox class to display simple messages with different actions.
-#
-# This is a skeleton superclass, all subclasses have the following:
-#   center method: Does what it says on the tin, recenters the Box
-#   adjust method: Moves the Box by y,x from current position, if able
-#   move method: Moves the box to y,x if able
-#   title property: Title displayed on the Box
-#   message property: Message displayed inside the box, as a list of
-#       newline-split strings
-#
-# Various 'private' properties and methods exist for manipulating in
-#   your own subclasses.
-########################################################################
 class _ButtonBox(object):
-    def __init__(self, title, message, buttons, stdscr):
+    '''
+    Class to display simple messages with different actions.
+
+    This is a skeleton superclass, designed to give overloaded
+        subclasses have the following:
+        - center method: Does what it says on the tin, recenters the Box
+        - adjust method: Moves the Box by y,x from current position, if able
+        - move method: Moves the box to y,x if able
+        - title property: Title displayed on the Box
+        - message property: Message displayed inside the box, as a list of
+            newline-split strings
+
+    Various 'private' properties and methods exist for manipulating in
+        your own subclasses.
+    '''
+    def __init__(self, stdscr, title='Box', message='Message', buttons=None):
         # Set object's title, message, and buttons
         self.title = title
         self.message = message.split('\n')
@@ -213,14 +235,18 @@ class _ButtonBox(object):
             offset += button.length
 
     def center(self):
-        # Center our panel
+        '''
+        Centers the panel within the parent
+        '''
         self._maxY, self._maxX = self._parent.getmaxyx()
-        self._startY = int((self._maxY // 2) - (self._maxY % 2) - (self._height // 2) - 1)
-        self._startX = int((self._maxX // 2) - (self._maxX % 2) - (self._width // 2) - 1)
+        self._startY = max(0, int((self._maxY // 2) - (self._maxY % 2) - (self._height // 2) - 1))
+        self._startX = max(0, int((self._maxX // 2) - (self._maxX % 2) - (self._width // 2) - 1))
 
     def adjust(self, y=0, x=0):
-        # Move the panel by amounts y, x from current position with
-        #   some bounds checking to keep in the parent window
+        '''
+        Move the panel by amounts y, x from current position with
+            some bounds checking to keep in the parent window
+        '''
         self._maxY, self._maxX = self._parent.getmaxyx()
         if self._startY + self._height + y < self._maxY:
             self._startY += y
@@ -235,28 +261,32 @@ class _ButtonBox(object):
         self._panel.move(self._startY, self._startX)
 
     def move(self, y=0, x=0):
-        # A bit of a hack, but adjust the window's position starting
-        #   from the top left. Bounds check once, cut twice?
+        '''
+        A bit of a hack, but adjust the window's position starting
+            from the top left. Bounds check once, cut twice?
+        '''
         self._maxY = 0
         self._maxX = 0
         self.adjust(y=y, x=x)
 
-########################################################################
-# MessageBox subclass to display a simple OK button on a _ButtonBox
-#
-# show() method displays the box, waits for Enter
-########################################################################
 class MessageBox(_ButtonBox):
-    def __init__(self, title, message, stdscr):
+    '''
+    Subclass to display a simple OK button on a _ButtonBox
+
+    > MessageBox(curses_stdscr, "The Title", "The message.").show()
+    '''
+    def __init__(self, stdscr, title='Message:', message='Press OK'):
         # _BoxButton set to default to ' OK ', so this is easy
         buttons=[
             _BoxButton(mode=_BoxButton().selected)
         ]
         # Call the _ButtonBox __init__()
-        super().__init__(title, message, buttons, stdscr)
+        super().__init__(stdscr, title, message, buttons)
 
     def show(self):
-        # Call _show(), loop _update() while waiting for Enter
+        '''
+        Display MessageBox, wait for enter.
+        '''
         self._show()
         while True:
             self._update()
@@ -268,15 +298,19 @@ class MessageBox(_ButtonBox):
         # Clean up our MessageBox
         self._hide()
 
-########################################################################
-# YesNoBox subclass to display YES and NO buttons, allowing arrow keys
-#   to toggle the selections and Y or N keys to hard select them.
-#
-# show() method again displays the box, but now returns True or False
-#   depending on selection of YES or NO buttons.
-########################################################################
+
 class YesNoBox(_ButtonBox):
-    def __init__(self, title, message, stdscr):
+    '''
+    Subclass to display YES and NO buttons, allowing arrow keys
+        to toggle the selections and Y or N keys to hard select them.
+
+    > i_should_do_it = YesNoBox(curses_stdscr, 'The Title', 'Should I do it?').show()
+    > if i_should_do_it:
+    >     print('Will do!')
+    > else:
+    >     print("Alright, I won't!")
+    '''
+    def __init__(self, stdscr, title='Select:', message='Yes or no?'):
         # Define our buttons using our built-in selectors from the
         #   superclass.
         buttons=[
@@ -284,7 +318,7 @@ class YesNoBox(_ButtonBox):
             _BoxButton(text='NO', mode=_BoxButton().selected)
         ]
         # Call the _ButtonBox __init__()
-        super().__init__(title, message, buttons, stdscr)
+        super().__init__(stdscr, title, message, buttons)
 
     def _move(self):
         # Since our choices are binary, we can just toggle them all
@@ -293,8 +327,10 @@ class YesNoBox(_ButtonBox):
             button.toggle()
 
     def show(self):
-        # Call _show(), initialize our return code, and loop _update()
-        #   while waiting for a selection
+        '''
+        Displays YesNoBox, allows for arrow keys to select between "Yes"
+            and "No". Returns True/False
+        '''
         self._show()
         returnCode = False
         while True:
@@ -320,23 +356,30 @@ class YesNoBox(_ButtonBox):
         self._hide()
         return returnCode
 
-########################################################################
-# InputBox subclass to display a fillable field with an OK button
-#
-# show() displays the InputBox with the value passed as default and
-#   allows editing
-# value property: Contains the value for the field, retrievable after
-#   show() but persistent after __init__
-########################################################################
 class InputBox(_ButtonBox):
-    def __init__(self, title, default, length, stdscr):
+    '''
+    Subclass to display a fillable field with an OK button
+
+    value property: Contains the value for the field, retrievable after
+        show() but persistent after __init__
+
+    > the_input = InputBox(curses_stdscr, 'The Title', "the default value", 30)
+    > the_input.show()
+    > print('You input:', the_input.value)
+
+        OR
+
+    > the_input = InputBox(curses_stdscr, 'The Title', "the default value", 30).show()
+    > print('You input:', the_input)
+    '''
+    def __init__(self, stdscr, title='Input:', default='', length=20):
         # Define a simple OK button
         buttons=[
             _BoxButton(mode=_BoxButton().selected)
         ]
         # Fake out the _ButtonBox to give us three lines, 1 space wider
         #   than the passed length
-        super().__init__(title, ' ' * (length+1) + '\n \n ', buttons, stdscr)
+        super().__init__(stdscr, title, ' ' * (length+1) + '\n \n ', buttons)
 
         # Initialize value, _length, and our split _value variables.
         #   Define _curPosition at the end of value
@@ -391,8 +434,9 @@ class InputBox(_ButtonBox):
             self._curPosition = len(self.value)
 
     def show(self):
-        # Call _show(), make the cursor visible, loop _update() and
-        #   editable field drawing while waiting for Enter
+        '''
+        Display our InputBox and store the value when they press enter
+        '''
         self._show()
         old_curs = curses.curs_set(1)
         while True:

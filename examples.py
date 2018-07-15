@@ -39,7 +39,7 @@ from time import sleep
 #   subordinate functions/classes, so they need initialized prior to
 #   entry into a menu
 class chainInputMessage(object):
-    def __init__(self, title, default, width, stdscr):
+    def __init__(self, stdscr, title='Title', default='', width=20):
         # Setting our value to boolean False allows us to determine if
         #   input was confirmed
         self.value = False
@@ -48,13 +48,13 @@ class chainInputMessage(object):
         self._stdscr = stdscr
         # We can instantiate our InputBox now because the content isn't
         #   dynamic after chain object instantiation
-        self._inputBox = cur.InputBox(title, default, width, stdscr)
+        self._inputBox = cur.InputBox(stdscr, title, default, width)
     def display(self):
         # Save the InputBox value into a temporary variable prior to
         #   confirmation
         tempVal = self._inputBox.show()
         # Get confirmation from a Yes/No dialog
-        if cur.YesNoBox('Confirm your selection?', tempVal, self._stdscr).show():
+        if cur.YesNoBox(self._stdscr, 'Confirm your selection?', tempVal).show():
             # Set value, no need to return
             self.value = tempVal
 
@@ -86,31 +86,31 @@ class messageBoxMover(cur.MessageBox):
 
 def examples(stdscr):
     # Set our title/subtitle
-    title = 'Curses Builder Examples, v' + cur.Version
+    title = 'Curses Builder Examples, v' + cur.__version__
     subtitle = 'Main Menu Options'
 
     # Define our InputBox/MessageBox chained object
-    chainInput = chainInputMessage('Enter input:', 'default message', 20, stdscr)
+    chainInput = chainInputMessage(stdscr, 'Enter input:', 'default message')
 
     # Define Menu object items list
     #   ('Entry', action, booleanForSoftBreak)
     menuItems = [
-        ('Input Example', chainInput.display, False),
+        ('Input Example', chainInput.display),
         ('Soft menu break', False, True),
-        ('Hard exit', exit, False)
+        ('Hard exit', exit)
     ]
 
     # Define the Menu
-    menu = cur.Menu(title, subtitle, menuItems, stdscr)
+    menu = cur.Menu(stdscr, title, subtitle, menuItems)
     # Initiate interaction with menu
     menu.show()
 
     # Menu should be clear, we can act on value of chained input here
     if chainInput.value:
-        cur.MessageBox('You selected:', '"' + chainInput.value + '"', stdscr).show()
+        cur.MessageBox(stdscr, 'You selected:', '"' + chainInput.value + '"').show()
     else:
         # Demo our custom subclass here
-        messageBoxMover('Warning',"You didn't select a value!\nThere is no need to be upset.",stdscr).show()
+        messageBoxMover(stdscr, 'Warning',"You didn't select a value!\nThere is no need to be upset.").show()
 
 if __name__ == '__main__':
     # You should definitely use curses.wrapper() to generate your standard
