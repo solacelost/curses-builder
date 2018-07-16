@@ -34,6 +34,14 @@ import cursesbuilder as cur
 from time import sleep
 
 ########################################################################
+# Variables that exist outside of the curses wrapper, or are passed
+#   there, are required for intra-curses communication. Really the best
+#   way to handle this is wish threading, but that's outside of the
+#   scope of this demo (for now)
+radio_selection = False
+check_selection = False
+
+########################################################################
 # Currently, classes are the best way to handle chaining objects within
 #   a menu, because the menu doesn't allow args to be passed to
 #   subordinate functions/classes, so they need initialized prior to
@@ -92,10 +100,20 @@ def examples(stdscr):
     # Define our InputBox/MessageBox chained object
     chainInput = chainInputMessage(stdscr, 'Enter input:', 'default message')
 
+    # Some other meny entry items
+    radioButton = cur.SingleSelectionBox(stdscr, 'Radio-button box',
+        items = [ 'Selection 1', 'Selection 2', 'Selection 3', 'Selection 4' ])
+
+    # You can just accept defaults for demo purposes, too, or wrap them
+    #   with your own defaults if you like
+    checkBoxes = cur.MultiSelectionBox(stdscr)
+
     # Define Menu object items list
     #   ('Entry', action, booleanForSoftBreak)
     menuItems = [
         ('Input Example', chainInput.display),
+        ('Radio-button Example', radioButton.show),
+        ('Checkbox Selection Example', checkBoxes.show),
         ('Soft menu break', False, True),
         ('Hard exit', exit)
     ]
@@ -110,7 +128,15 @@ def examples(stdscr):
         cur.MessageBox(stdscr, 'You selected:', '"' + chainInput.value + '"').show()
     else:
         # Demo our custom subclass here
-        messageBoxMover(stdscr, 'Warning',"You didn't select a value!\nThere is no need to be upset.").show()
+        messageBoxMover(stdscr, 'Warning',"You didn't select a value in the input example!\nThere is no need to be upset.").show()
+
+    # Handling of the UI's selections isn't limited to curses behavior,
+    #   you can do whatever you want with it afterwards
+    global radio_selection
+    global check_selection
+    radio_selection = radioButton.value
+    check_selection = checkBoxes.value
+
 
 if __name__ == '__main__':
     # You should definitely use curses.wrapper() to generate your standard
@@ -118,3 +144,15 @@ if __name__ == '__main__':
     #   implement your own try/except to clean up, but why do that when
     #   wrapper exists?
     curses.wrapper(examples)
+
+    # Outside of our curses wrapper, we can resume normal print activity in the
+    #   shell. This is to demo communication between the curses shell and
+    #   "Important Work" outside of it.
+    if radio_selection is not False or check_selection is not False:
+        for line in [ 'I see you also tried out our selection boxes.',
+          "Here's what you picked:", '',
+          'Radio selection: {}'.format(radio_selection),
+          'Checkbox selection: {}'.format(check_selection) ]:
+            print(line)
+    else:
+        print('Try out the selection boxes next time!')
