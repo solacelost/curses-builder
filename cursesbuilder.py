@@ -33,6 +33,7 @@ import curses
 from curses import panel
 from collections import deque
 
+
 class Menu(object):
     '''
     Menu class allows for creation of arrow-key-selectable menu choices
@@ -41,23 +42,24 @@ class Menu(object):
 
     `items` expected to be a list of 3-tuples, or 2-tuples (assuming False)
       ('Menu entry', action, BreakMenu<True/False>)
-      ('Menu entry', action)    # Implying BreakMenu = False)
+      ('Menu entry', action)    # Implying BreakMenu=False)
 
 
-    > item1 = InputBox(stdscr, 'Receive Input', 'default value', length = 30)
-    > item2 = MessageBox(stdscr, 'Display Message', 'The message!')
+    > item1=InputBox(stdscr, 'Receive Input', 'default value', length=30)
+    > item2=MessageBox(stdscr, 'Display Message', 'The message!')
     >
-    > items = []
-    > items.append( ('Selection 1: Input', item1.show) )
-    > items.append( ('Selection 2: Message', item2.show, False) )
-    > items.append( ('Exit Menu', False, True) )
+    > items=[]
+    > items.append(('Selection 1: Input', item1.show))
+    > items.append(('Selection 2: Message', item2.show, False))
+    > items.append(('Exit Menu', False, True))
     >
     > Menu(stdscr, 'Title', 'Optional Subtitle', items).show()
     > print('You selected "{}" in Selection 1.'.format(item1.value))
     '''
-    def __init__(self, stdscr, title = 'Menu', subtitle = '', items = [ ( 'Exit Menu', False, True ) ]):
+    def __init__(self, stdscr, title='Menu', subtitle='',
+                 items=[('Exit Menu', False, True)]):
         # Prepare the curses subwindow and panel
-        self._window = curses.newwin(0,0)
+        self._window = curses.newwin(0, 0)
         self._window.keypad(1)
         self._panel = panel.new_panel(self._window)
         self._panel.hide()
@@ -68,8 +70,8 @@ class Menu(object):
         self._title = title
         self._subtitle = subtitle
         # Handily append a soft menu break if you forgot...
-        if not True in [ x[2] for x in items if len(x) == 3 ]:
-            items.append( ('Exit Menu', False, True) )
+        if not True in [x[2] for x in items if len(x) == 3]:
+            items.append(('Exit Menu', False, True))
         self._items = items
 
     def _navigate(self, n):
@@ -111,9 +113,10 @@ class Menu(object):
             key = self._window.getch()
 
             if key in [curses.KEY_ENTER, ord('\n')]:
-                # Break if the third element of this item's 3-tuple
-                #   evaluates to True
-                if len(self._items[self._position]) > 2 and self._items[self._position][2]:
+                if (len(self._items[self._position]) > 2 and
+                        self._items[self._position][2]):
+                    # Break if the third element of this item's 3-tuple
+                    #   evaluates to True
                     break
                 # Otherwise, perform the action
                 else:
@@ -134,18 +137,19 @@ class Menu(object):
         panel.update_panels()
         curses.doupdate()
 
+
 class _BoxButton(object):
     '''
     Class to build selectable buttons for _ButtonBoxes
     Meant to be overloaded to define new button types.
     '''
-    def __init__(self, text = 'OK', selected = False):
+    def __init__(self, text='OK', selected=False):
         # Some easily modifyable class attributes here, you can instantiate
         #   your own instances with different selection criteria (such as
         #   colors or whatnot)
         self._deselected = {'mode': curses.A_NORMAL, 'name': 'deselected'}
         self._selected = {'mode': curses.A_REVERSE, 'name': 'selected'}
-        self._modes = deque( ( self._deselected, self._selected ) )
+        self._modes = deque((self._deselected, self._selected))
         # Set some basic properties
         self.text = ' ' + text + ' '
         # Enforce deque rotation for modes
@@ -164,6 +168,7 @@ class _BoxButton(object):
     def select(self):
         if self.mode != self._selected:
             self.toggle()
+
     def deselect(self):
         if self.mode != self._deselected:
             self.toggle()
@@ -172,6 +177,7 @@ class _BoxButton(object):
     def toggle(self):
         self._modes.rotate()
         self.mode = self._modes[0]
+
 
 class _ButtonBox(object):
     '''
@@ -189,7 +195,8 @@ class _ButtonBox(object):
     Various 'private' properties and methods exist for manipulating in
         your own subclasses.
     '''
-    def __init__(self, stdscr, title = 'Box', message = 'Message', buttons = None):
+    def __init__(self, stdscr, title='Box', message='Message',
+                 buttons=None):
         # Set object's title, message, and buttons
         self.title = title
         self.message = message.split('\n')
@@ -204,10 +211,14 @@ class _ButtonBox(object):
         # Set width of box, truncating on window length
         self._buttonWidth = sum([x.length for x in self._buttons])
         messageWidth = max(len(x) for x in self.message)
-        self._width = min(self._maxX, max(len(title)+1, messageWidth, self._buttonWidth) + 2)
+        self._width = min(self._maxX,
+                          max(len(title)+1,
+                              messageWidth,
+                              self._buttonWidth) + 2)
         # Build window and panel, then hide
         self.center()
-        self._window = curses.newwin(self._height, self._width, self._startY, self._startX)
+        self._window = curses.newwin(self._height, self._width,
+                                     self._startY, self._startX)
         self._window.keypad(1)
         self._panel = panel.new_panel(self._window)
         self._panel.hide()
@@ -249,10 +260,16 @@ class _ButtonBox(object):
         Centers the panel within the parent
         '''
         self._maxY, self._maxX = self._parent.getmaxyx()
-        self._startY = max(0, int((self._maxY // 2) - (self._maxY % 2) - (self._height // 2) - 1))
-        self._startX = max(0, int((self._maxX // 2) - (self._maxX % 2) - (self._width // 2) - 1))
+        self._startY = max(
+            0,
+            int((self._maxY // 2) - (self._maxY % 2) - (self._height // 2) - 1)
+            )
+        self._startX = max(
+            0,
+            int((self._maxX // 2) - (self._maxX % 2) - (self._width // 2) - 1)
+            )
 
-    def adjust(self, y = 0, x = 0):
+    def adjust(self, y=0, x=0):
         '''
         Move the panel by amounts y, x from current position with
             some bounds checking to keep in the parent window
@@ -270,14 +287,15 @@ class _ButtonBox(object):
         self._startX = max(0, self._startX)
         self._panel.move(self._startY, self._startX)
 
-    def move(self, y = 0, x = 0):
+    def move(self, y=0, x=0):
         '''
         A bit of a hack, but adjust the window's position starting
             from the top left. Bounds check once, cut twice?
         '''
         self._maxY = 0
         self._maxX = 0
-        self.adjust(y = y, x = x)
+        self.adjust(y=y, x=x)
+
 
 class _SelectionItem(_BoxButton):
     '''
@@ -286,7 +304,9 @@ class _SelectionItem(_BoxButton):
         toggles. Displayed indictor will be dependant on mode (selected or
         deselected)
     '''
-    def __init__(self, text = 'Item', indicator_selected = False, selected = False, indicator = 0):
+    def __init__(self, text='Item', indicator_selected=False,
+                 selected=False, indicator=0):
+        # Define some indicator pair types
         indicator_x = ('☐', '☒')
         indicator_check = ('☐', '☑')
         indicator_radial = ('○', '◉')
@@ -300,7 +320,7 @@ class _SelectionItem(_BoxButton):
         # Modify the text with indicator prior to _BoxButton init
         text = self._indicator[indicator_selected] + ' ' + text
         # Call _BoxButton init
-        super().__init__(text = text, selected = selected)
+        super().__init__(text=text, selected=selected)
 
     def __str__(self):
         return self._text
@@ -312,12 +332,14 @@ class _SelectionItem(_BoxButton):
         # By overloading select, we change the behavior to be unrelated to
         #   highlighting, and instead modify our indicators
         self.text = ' ' + self._indicator[1] + ' ' + self._text + ' '
+
     def deselect(self):
         '''
         Change the indicator to deselected
         '''
         # The same is done with deselect
         self.text = ' ' + self._indicator[0] + ' ' + self._text + ' '
+
 
 class _SelectionBox(_ButtonBox):
     '''
@@ -326,13 +348,16 @@ class _SelectionBox(_ButtonBox):
     `items` should be passed as an iterable of only the entries you want  to be
         displayed
     '''
-    def __init__(self, stdscr, title = 'Title', message = 'Message', indicator = 0, items = ['One', 'Two']):
+    def __init__(self, stdscr, title='Title', message='Message',
+                 indicator=0, items=['One', 'Two']):
         # Default to an OK/Cancel button
         buttons = [
-            _BoxButton(text = 'Cancel'),
-            _BoxButton(selected = True)
-        ]
-        self._items = [ _SelectionItem(text = item, indicator = indicator ) for item in items ]
+            _BoxButton(text='Cancel'),
+            _BoxButton(selected=True)
+            ]
+        self._items = [
+            _SelectionItem(text=item, indicator=indicator) for item in items
+            ]
         self._items[0].toggle()
         self._itemStart = len(message.split('\n')) + 1
         # Make our message big enough to house all our items
@@ -341,9 +366,9 @@ class _SelectionBox(_ButtonBox):
         # value stores the returned selection, if called
         self.value = False
         # Initialize our box
-        super().__init__(stdscr, title = title, message = message, buttons = buttons)
+        super().__init__(stdscr, title=title, message=message, buttons=buttons)
 
-    def _move(self, direction = None):
+    def _move(self, direction=None):
         # Allows calling _move() to toggle buttons alone
         if direction is None:
             for button in self._buttons:
@@ -353,7 +378,8 @@ class _SelectionBox(_ButtonBox):
             if direction > 0:
                 # Iterate to allow changing within indexes, skipping last item
                 for i in range(len(self._items) - 1):
-                    # Conditional fails if they're trying to go down from last index position
+                    # Conditional fails if they're trying to go down from last
+                    #   index position
                     if self._items[i].mode == self._items[i]._selected:
                         # Toggle the previously selected item highlight off
                         self._items[i].toggle()
@@ -361,7 +387,8 @@ class _SelectionBox(_ButtonBox):
                             # See if our range allows us to target a toggle
                             self._items[i + direction].toggle()
                         except IndexError:
-                            # If it's out of range, just toggle the last element
+                            # If it's out of range,
+                            #   just toggle the last element
                             self._items[-1].toggle()
                         finally:
                             # Quit while you're ahead
@@ -376,7 +403,8 @@ class _SelectionBox(_ButtonBox):
                             # Once again, try to target a toggle
                             self._items[i + direction].toggle()
                         except IndexError:
-                            # If out of bounds, just toggle the first item's highlight
+                            # If out of bounds, just toggle the first item's
+                            #   highlight
                             self._items[0].toggle()
                         finally:
                             break
@@ -401,7 +429,8 @@ class _SelectionBox(_ButtonBox):
             self._update()
             # Add our items
             for index, item in enumerate(self._items):
-                self._window.addstr(self._itemStart + index, 2, item.text, item.mode['mode'])
+                self._window.addstr(self._itemStart + index, 2,
+                                    item.text, item.mode['mode'])
             # Listen for keypress
             key = self._window.getch()
             # Enter selects a button (OK/Cancel)
@@ -411,23 +440,24 @@ class _SelectionBox(_ButtonBox):
                     if button.mode == button._selected and str(button) == 'OK':
                         returnCode = True
                         break
-                # If they didn't select OK, but did hit enter, they chose to cancel
+                # If they didn't select OK, but did hit enter,
+                #   they chose to cancel
                 break
             # Left and right keys toggle button highlight
-            elif key in [ curses.KEY_LEFT, curses.KEY_RIGHT ]:
+            elif key in [curses.KEY_LEFT, curses.KEY_RIGHT]:
                 self._move()
             # Down key moves our highlight to the next selection item
             elif key == curses.KEY_DOWN:
-                self._move(direction = 1)
+                self._move(direction=1)
             # Up key moves our highlight to the last selection item
             elif key == curses.KEY_UP:
-                self._move(direction = -1)
+                self._move(direction=-1)
             # Home key goes to the top
             elif key == curses.KEY_HOME:
-                self._move(direction = -len(self._items))
+                self._move(direction=-len(self._items))
             # End key to the bottom
             elif key == curses.KEY_END:
-                self._move(direction = len(self._items))
+                self._move(direction=len(self._items))
             elif chr(key) == ' ':
                 # Allow different selection types from subclasses
                 self._itemSelect()
@@ -440,14 +470,17 @@ class _SelectionBox(_ButtonBox):
             self.value = False
             return False
 
+
 class SingleSelectionBox(_SelectionBox):
     '''
     Subclass to allow for selection of a single item from a list of choices
     '''
-    def __init__(self, stdscr, title = 'Radio Button Box',
-      message = 'Select an entry with space,\nselect OK or Cancel with Enter',
-      items = [ 'Entry 1', 'Entry 2' ]):
-        super().__init__(stdscr, title = title, message = message, indicator = 2, items = items)
+    def __init__(self, stdscr, title='Radio Button Box',
+                 message=('Select an entry with space,\n'
+                          'select OK or Cancel with Enter'),
+                 items=['Entry 1', 'Entry 2']):
+        super().__init__(stdscr, title=title, message=message,
+                         indicator=2, items=items)
         # Set our first item to default to selected
         self._items[0].select()
 
@@ -488,14 +521,17 @@ class SingleSelectionBox(_SelectionBox):
         # Failsafe in case we weirdly don't have a selected item
         return False
 
+
 class MultiSelectionBox(_SelectionBox):
     '''
     Subclass to allow for selection of multiple items from a list of choices
     '''
-    def __init__(self, stdscr, title = 'Check-box Button Box',
-      message = 'Select an entry with space,\nselect OK or Cancel with Enter',
-      items = [ 'Entry 1', 'Entry 2' ]):
-        super().__init__(stdscr, title = title, message = message, indicator = 1, items = items)
+    def __init__(self, stdscr, title='Check-box Button Box',
+                 message=('Select an entry with space,\n'
+                          'select OK or Cancel with Enter'),
+                 items=['Entry 1', 'Entry 2']):
+        super().__init__(stdscr, title=title, message=message,
+                         indicator=1, items=items)
 
     def show(self):
         '''
@@ -539,16 +575,17 @@ class MultiSelectionBox(_SelectionBox):
         self.value = returnList
         return returnList
 
+
 class MessageBox(_ButtonBox):
     '''
     Subclass to display a simple OK button on a _ButtonBox
 
     > MessageBox(curses_stdscr, "The Title", "The message.").show()
     '''
-    def __init__(self, stdscr, title = 'Message:', message = 'Press OK'):
+    def __init__(self, stdscr, title='Message:', message='Press OK'):
         # _BoxButton set to default to ' OK ', so this is easy
         buttons = [
-            _BoxButton(selected = True)
+            _BoxButton(selected=True)
         ]
         # Call the _ButtonBox __init__()
         super().__init__(stdscr, title, message, buttons)
@@ -574,18 +611,21 @@ class YesNoBox(_ButtonBox):
     Subclass to display YES and NO buttons, allowing arrow keys
         to toggle the selections and Y or N keys to hard select them.
 
-    > i_should_do_it = YesNoBox(curses_stdscr, 'The Title', 'Should I do it?').show()
+    > i_should_do_it=YesNoBox(curses_stdscr,
+    >     'The Title','
+    >     Should I do it?'
+    >     ).show()
     > if i_should_do_it:
     >     print('Will do!')
     > else:
     >     print("Alright, I won't!")
     '''
-    def __init__(self, stdscr, title = 'Select:', message = 'Yes or no?'):
+    def __init__(self, stdscr, title='Select:', message='Yes or no?'):
         # Define our buttons using our built-in selectors from the
         #   superclass.
         buttons = [
-            _BoxButton(text = 'YES'),
-            _BoxButton(text = 'NO', selected = True)
+            _BoxButton(text='YES'),
+            _BoxButton(text='NO', selected=True)
         ]
         # Call the _ButtonBox __init__()
         super().__init__(stdscr, title, message, buttons)
@@ -610,21 +650,26 @@ class YesNoBox(_ButtonBox):
             if key in [curses.KEY_ENTER, ord('\n')]:
                 # Binary choices make this easy
                 for button in self._buttons:
-                    if button.mode == button._selected and str(button) == 'YES':
+                    if (button.mode == button._selected and
+                            str(button) == 'YES'):
                         returnCode = True
                         break
                 break
-            elif key in [curses.KEY_LEFT, curses.KEY_RIGHT, curses.KEY_DOWN, curses.KEY_UP]:
+            elif key in [curses.KEY_LEFT,
+                         curses.KEY_RIGHT,
+                         curses.KEY_DOWN,
+                         curses.KEY_UP]:
                 self._move()
             # key handling to allow hard-selection
-            elif key in [ord('y'),ord('Y')]:
+            elif key in [ord('y'), ord('Y')]:
                 returnCode = True
                 break
-            elif key in [ord('n'),ord('N')]:
+            elif key in [ord('n'), ord('N')]:
                 break
         # Clean up our YesNoBox and return the selected choice
         self._hide()
         return returnCode
+
 
 class InputBox(_ButtonBox):
     '''
@@ -633,19 +678,21 @@ class InputBox(_ButtonBox):
     value property: Contains the value for the field, retrievable after
         show() but persistent after __init__
 
-    > the_input = InputBox(curses_stdscr, 'The Title', "the default value", 30)
+    > the_input=InputBox(curses_stdscr, 'The Title', "the default value", 30)
     > the_input.show()
     > print('You input:', the_input.value)
 
         OR
 
-    > the_input = InputBox(curses_stdscr, 'The Title', "the default value", 30).show()
+    > the_input=InputBox(curses_stdscr,
+    >     'The Title', "the default value", 30
+    >     ).show()
     > print('You input:', the_input)
     '''
-    def __init__(self, stdscr, title = 'Input:', default = '', length = 20):
+    def __init__(self, stdscr, title='Input:', default='', length=20):
         # Define a simple OK button
         buttons = [
-            _BoxButton(selected = True)
+            _BoxButton(selected=True)
         ]
         # Fake out the _ButtonBox to give us three lines, 1 space wider
         #   than the passed length
@@ -659,7 +706,7 @@ class InputBox(_ButtonBox):
         self._valueR = ''
         self._curPosition = len(self.value)
 
-    def _moveCurs(self, pos = 0, trim = 0, app = None):
+    def _moveCurs(self, pos=0, trim=0, app=None):
         # Move the cursor by pos, optionally removing trim characters
         #   from _valueL (if neg) or _valueR (if pos) or appending app
         #   to _valueL (inserting it at the current cursor position)
@@ -712,7 +759,11 @@ class InputBox(_ButtonBox):
         while True:
             self._update()
             # This will highlight our field in A_REVERSE through the end
-            self._window.addstr(2, 1, self.value + (' ' * (self._length - len(self.value))), curses.A_REVERSE)
+            self._window.addstr(
+                2, 1,
+                self.value + (' ' * (self._length - len(self.value))),
+                curses.A_REVERSE
+                )
             # Put the cursor where it belongs
             self._window.move(2, self._curPosition + 1)
             # Wait for input
@@ -723,19 +774,19 @@ class InputBox(_ButtonBox):
                 break
             elif key < 256:
                 # Key was in UTF-8 range, append it
-                self._moveCurs(app = chr(key))
+                self._moveCurs(app=chr(key))
             elif key == curses.KEY_BACKSPACE:
-                self._moveCurs(trim = -1)
+                self._moveCurs(trim=-1)
             elif key == curses.KEY_DC:
-                self._moveCurs(trim = 1)
+                self._moveCurs(trim=1)
             elif key == curses.KEY_RIGHT:
-                self._moveCurs(pos = 1)
+                self._moveCurs(pos=1)
             elif key == curses.KEY_LEFT:
-                self._moveCurs(pos = -1)
+                self._moveCurs(pos=-1)
             elif key == curses.KEY_HOME:
-                self._moveCurs(pos = -self._length)
+                self._moveCurs(pos=-self._length)
             elif key == curses.KEY_END:
-                self._moveCurs(pos = self._length)
+                self._moveCurs(pos=self._length)
 
         # After breaking loop, reset cursor style and clean up panel
         curses.curs_set(old_curs)

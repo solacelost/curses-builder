@@ -41,12 +41,14 @@ from time import sleep
 radio_selection = False
 check_selection = False
 
-########################################################################
-# Currently, classes are the best way to handle chaining objects within
-#   a menu, because the menu doesn't allow args to be passed to
-#   subordinate functions/classes, so they need initialized prior to
-#   entry into a menu
+
 class chainInputMessage(object):
+    '''
+    Currently, classes are the best way to handle chaining objects within
+    a menu, because the menu doesn't allow args to be passed to
+    subordinate functions/classes, so they need initialized prior to
+    entry into a menu
+    '''
     def __init__(self, stdscr, title='Title', default='', width=20):
         # Setting our value to boolean False allows us to determine if
         #   input was confirmed
@@ -57,20 +59,25 @@ class chainInputMessage(object):
         # We can instantiate our InputBox now because the content isn't
         #   dynamic after chain object instantiation
         self._inputBox = cur.InputBox(stdscr, title, default, width)
+
     def display(self):
         # Save the InputBox value into a temporary variable prior to
         #   confirmation
         tempVal = self._inputBox.show()
         # Get confirmation from a Yes/No dialog
-        if cur.YesNoBox(self._stdscr, 'Confirm your selection?', tempVal).show():
+        if cur.YesNoBox(self._stdscr,
+                        'Confirm your selection?',
+                        tempVal).show():
             # Set value, no need to return
             self.value = tempVal
 
-########################################################################
-# This small subclass of our MessageBox class (also a subclass...)
-#   enables us to easily move a box around. There are exposed methods
-#   in the class to do the movement, but no neat way to animate it live.
+
 class messageBoxMover(cur.MessageBox):
+    '''
+    This small subclass of our MessageBox class (also a subclass...)
+    enables us to easily move a box around. There are exposed methods
+    in the class to do the movement, but no neat way to animate it live.
+    '''
     # I don't bother rebuilding __init__ here, I stick with a basic
     #   MessageBox. I do need to replace show(), however...
     def show(self):
@@ -102,7 +109,12 @@ def examples(stdscr):
 
     # Some other meny entry items
     radioButton = cur.SingleSelectionBox(stdscr, 'Radio-button box',
-        items = [ 'Selection 1', 'Selection 2', 'Selection 3', 'Selection 4' ])
+                                         items=[
+                                             'Selection 1',
+                                             'Selection 2',
+                                             'Selection 3',
+                                             'Selection 4'
+                                             ])
 
     # You can just accept defaults for demo purposes, too, or wrap them
     #   with your own defaults if you like
@@ -125,10 +137,13 @@ def examples(stdscr):
 
     # Menu should be clear, we can act on value of chained input here
     if chainInput.value:
-        cur.MessageBox(stdscr, 'You selected:', '"' + chainInput.value + '"').show()
+        cur.MessageBox(stdscr, 'You selected:',
+                       '"' + chainInput.value + '"').show()
     else:
         # Demo our custom subclass here
-        messageBoxMover(stdscr, 'Warning',"You didn't select a value in the input example!\nThere is no need to be upset.").show()
+        messageBoxMover(stdscr, 'Warning',
+                        ("You didn't select a value in the input example!"
+                         "There is no need to be upset.")).show()
 
     # Handling of the UI's selections isn't limited to curses behavior,
     #   you can do whatever you want with it afterwards
@@ -149,10 +164,10 @@ if __name__ == '__main__':
     #   shell. This is to demo communication between the curses shell and
     #   "Important Work" outside of it.
     if radio_selection is not False or check_selection is not False:
-        for line in [ 'I see you also tried out our selection boxes.',
-          "Here's what you picked:", '',
-          'Radio selection: {}'.format(radio_selection),
-          'Checkbox selection: {}'.format(check_selection) ]:
+        for line in ['I see you also tried out our selection boxes.',
+                     "Here's what you picked:", '',
+                     'Radio selection: {}'.format(radio_selection),
+                     'Checkbox selection: {}'.format(check_selection)]:
             print(line)
     else:
         print('Try out the selection boxes next time!')

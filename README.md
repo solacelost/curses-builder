@@ -16,6 +16,7 @@ example.py demonstrates usage of every primary class, as well as how to create c
 - Provide means to encapsulate whole canvasses, drawing widgets on top and eliminating the need to manually wrap curses
 - Improve panel handling, provide interface for moving panels
 - A better menu system that doesn't require class instantiation to chain widgets together (maybe solvable by a larger abstraction?)
+- setup.py, build wheels, etc.
 
 ## Classes
 ### Menu
